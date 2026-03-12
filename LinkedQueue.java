@@ -1,25 +1,29 @@
-public class WaitListQueue<T> implements QueueInterface<T> {
+public class LinkedQueue<T> implements QueueInterface<T> {
     private Node firstNode;
     private Node lastNode;
 
+    public LinkedQueue(){
+        firstNode=null;
+        lastNode=null;
+    }
 
-    public void enqueue(T newEntry){
+    private void enqueue(T newEntry){
 
     }
 
-    public T dequeue(){
+    private T dequeue(){
 
     }
 
-    public T getFront(){
+    private T getFront(){
 
     }
 
-    public boolean isEmpty(){
+    private boolean isEmpty(){
 
     }
 
-    public void clear(){
+    private void clear(){
 
     }
 
@@ -32,19 +36,19 @@ public class WaitListQueue<T> implements QueueInterface<T> {
             this.next = null;
         }
 
-        public T getData(){
+        T getData(){
             return data;
         }
 
-        public void setData(T data){
+        void setData(T data){
             this.data = data;
         }
 
-        public Node getNext(){
+        Node getNext(){
             return next;
         }
 
-        public void setNext(Node next){
+        void setNext(Node next){
             this.next = next;
         }
 
