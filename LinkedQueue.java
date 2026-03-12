@@ -7,24 +7,48 @@ public class LinkedQueue<T> implements QueueInterface<T> {
         lastNode=null;
     }
 
-    private void enqueue(T newEntry){
-
+    public void enqueue(T newEntry){
+        Node newNode = new Node(newEntry);
+        if(firstNode==null && lastNode==null){
+            firstNode = newNode;
+            lastNode = newNode;
+        }
+        else{
+            lastNode.setNext(newNode);
+            lastNode = newNode;
+        }
     }
 
-    private T dequeue(){
-
+    public T dequeue(){
+        if(firstNode==null){
+            return null;
+        }
+        T data = firstNode.getData();
+        firstNode = firstNode.getNext();
+        if(firstNode==null){
+            lastNode=null;
+        }
+        return data;
     }
 
-    private T getFront(){
-
+    public T getFront(){
+        if(firstNode==null){
+            return null;
+        }
+        return firstNode.getData();
     }
 
-    private boolean isEmpty(){
-
+    public boolean isEmpty(){
+        boolean result = false;
+        if(firstNode == null && lastNode == null){
+            result = true;
+        }
+        return result;
     }
 
-    private void clear(){
-
+    public void clear(){ //set both Nodes to null so Java's garbage collection can clear the rest, as nothing points to the linkedData after
+        firstNode=null;
+        lastNode=null;
     }
 
     private class Node {

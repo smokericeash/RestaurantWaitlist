@@ -12,7 +12,7 @@ public class test{
         Table[] tables = new Table[6];
         int count = 0;
         try{
-            Scanner fileReader = new Scanner("tables.txt");
+            Scanner fileReader = new Scanner(new File("tables.txt"));
             while(fileReader.hasNextLine()){
                 String line = fileReader.nextLine().trim();
                 String[] parts = line.split("\\s+");
@@ -23,7 +23,9 @@ public class test{
                     combineableWith[i-2] = Integer.parseInt(parts[i]);
                 }
                 tables[count] = new Table(tableID, seats, combineableWith);
+                count++;
             }
+            fileReader.close();
         }
         catch (FileNotFoundException e){
             System.out.println("Table file was not found within the library, please restart.");
@@ -75,5 +77,9 @@ public class test{
 
     public static void seatPartyPolicyA(QueueInterface<Party> waitList, Table[] tables){
 
+    }
+
+    public static void seatPartyPolicyB(QueueInterface<Party> waitList, Table[] tables){
+        
     }
 }
