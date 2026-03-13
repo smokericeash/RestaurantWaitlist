@@ -37,5 +37,13 @@ public class Table {
         return combineableWith; 
     }
 
+    public void setAvailable(boolean isAvailable){
+        this.isAvailable = isAvailable;
+    }
+
+    public void setAvailableAtTime(int availableAtTime){
+        this.availableAtTime = availableAtTime;
+    }
+
 
 }
