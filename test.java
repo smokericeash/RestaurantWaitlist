@@ -1,5 +1,5 @@
-import java.util.*;
 import java.io.*;
+import java.util.*;
 public class test{
     public static void main(String[] args){
         System.out.println("H Print Help Message");
@@ -10,6 +10,8 @@ public class test{
         System.out.println("Policy B: Scans the entire waitlist and seats the first party that can fit, skipping those who can't without losing their place in line.");
 
         Table[] tables = new Table[6];
+        Party[] seatedParty = new Party[50];
+        int[] seatedCount = {0};
         int count = 0;
         int queueSize=0;
         try{
@@ -43,7 +45,9 @@ public class test{
         boolean running = true;
         int currentTime = 1;
         while(running){
-            System.out.println("Time" + currentTime + ":");
+            if(!running)
+                break;
+            System.out.println("Time " + currentTime + ":");
             System.out.print("Please enter your choice: ");
             String input = keyboard.nextLine().trim();
             String[] parts = input.split("\\s+");
@@ -51,6 +55,19 @@ public class test{
             currentTime++;
 
             if(input.equalsIgnoreCase("Q")){
+                double totalTime = 0;
+                int maxTime = 0;
+                for(int i = 0; i < seatedCount[0] ; i++){
+                    int wait = seatedParty[i].getWaitTime();
+                    totalTime+=wait;
+                    if(wait > maxTime){
+                        maxTime = wait;
+                    }
+                    System.out.println(seatedParty[i].getName() + " (" + seatedParty[i].getPartySize() + ") : Arrived: " + seatedParty[i].getArrivalTime() + "| Seated: " + seatedParty[i].getSeatingTime() + "| Wait: " + wait); 
+                }
+                System.out.println("Average wait time: " + totalTime/seatedCount[0]);
+                System.out.println("Maximum wait time: " + maxTime);
+                System.out.println("Total parties served: " + seatedCount[0]);
                 running=false;
             }
             if(input.equalsIgnoreCase("H")){
@@ -64,6 +81,18 @@ public class test{
             }
             if(input.equalsIgnoreCase("V")){
                 System.out.println("Current Waitlist:");
+                if(waitList.isEmpty()){
+                    System.out.println("No one is currently on the waitlist.");
+                }
+                else{
+                    int numbered = 1;
+                    for(int i = 0; i < queueSize ; i++){
+                        Party current = waitList.dequeue();
+                        System.out.println(numbered + ". " + current.getName() + " (" + current.getPartySize() + ")");
+                        waitList.enqueue(current);
+                        numbered++;
+                    }
+                }
 
             }
             if(input.toUpperCase().startsWith("J")){
@@ -74,7 +103,8 @@ public class test{
                 party.setArrivalTime(arrivalTime);
                 waitList.enqueue(party);
                 queueSize++;
-                System.out.println(party.getName() + " (" + party.getPartySize() + ") has joined the waitlist.");        
+                System.out.println(party.getName() + " (" + party.getPartySize() + ") has joined the waitlist.");   
+                System.out.println("You are #" + queueSize + " in the waitlist.");     
             }
 
             for (int i = 0; i < tables.length; i++) {
@@ -84,18 +114,18 @@ public class test{
             }
                 //checking seatPolicyA/B
             if(inputPolicy.equalsIgnoreCase("A")){
-                if(seatPartyPolicyA(waitList, tables, currentTime))
+                if(seatPartyPolicyA(waitList, tables, currentTime, seatedParty, seatedCount))
                     queueSize--;
             }
             else{
-                if(seatPartyPolicyB(waitList, tables, currentTime, queueSize))
+                if(seatPartyPolicyB(waitList, tables, currentTime, queueSize, seatedParty, seatedCount))
                     queueSize--;
             }            
 
         }
     }
 
-    public static boolean seatPartyPolicyA(QueueInterface<Party> waitList, Table[] tables, int currentTime){
+    public static boolean seatPartyPolicyA(QueueInterface<Party> waitList, Table[] tables, int currentTime, Party[] seatedParty, int[] seatedCount){
         if(waitList.isEmpty()){
             return false;
         }
@@ -111,16 +141,34 @@ public class test{
                 int doneAtTime = currentTime + (10+2 * partySize);
                 tables[i].setAvailableAtTime(doneAtTime);
                 System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[i].getTableID());
+                seatedParty[seatedCount[0]] = front;
+                seatedCount[0]++;
                 return true;
             }
+        }
+
+        int[] combination = findTableCombo(front,tables);
+        if(combination!=null){
+            waitList.dequeue();
+            front.setSeatingTime(currentTime);
+            tables[combination[0]].setAvailable(false);
+            tables[combination[0]].setAvailableAtTime(currentTime + (10+2*front.getPartySize()));
+            tables[combination[1]].setAvailable(false);
+            tables[combination[1]].setAvailableAtTime(currentTime + (10+2*front.getPartySize()));
+            System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[combination[0]].getTableID() + " and at Table " + tables[combination[1]].getTableID());
+            seatedParty[seatedCount[0]] = front;
+            seatedCount[0]++;
+            return true;
         }
         return false;
     }
 
-    public static boolean seatPartyPolicyB(QueueInterface<Party> waitList, Table[] tables, int currentTime, int queueSize){
+    public static boolean seatPartyPolicyB(QueueInterface<Party> waitList, Table[] tables, int currentTime, int queueSize, Party[] seatedParty, int[] seatedCount){
         if(waitList.isEmpty()){ //checking for empty queue 
             return false;
         }
+
+        QueueInterface<Party> tempQueue = new LinkedQueue<>();
 
         for(int i = 0; i < queueSize; i++){
             Party currentParty = waitList.dequeue();
@@ -134,19 +182,73 @@ public class test{
                     tables[j].setAvailableAtTime(doneAtTime);
                     System.out.println("Now Seating: " + currentParty.getName() + "(" + currentParty.getPartySize() + ")" + " at Table " + tables[j].getTableID());
                     seated = true;
+                    seatedParty[seatedCount[0]] = currentParty;
+                    seatedCount[0]++;
                     queueSize--;
+                    while(!waitList.isEmpty()){
+                        tempQueue.enqueue(waitList.dequeue());
+                    }
+                    while(!tempQueue.isEmpty()){
+                        waitList.enqueue(tempQueue.dequeue());
+                    }
                     return true;
                 }
                 
             }
 
             if(!seated){
-                waitList.enqueue(currentParty);
+                int[] combo = findTableCombo(currentParty, tables);
+                if(combo!=null){
+                    currentParty.setSeatingTime(currentTime);
+                    tables[combo[0]].setAvailable(false);
+                    tables[combo[0]].setAvailableAtTime(currentTime + (10+2*currentParty.getPartySize()));
+                    tables[combo[1]].setAvailable(false);
+                    tables[combo[1]].setAvailableAtTime(currentTime + (10+2*currentParty.getPartySize()));
+                    System.out.println("Now Seating: " + currentParty.getName() + "(" + currentParty.getPartySize() + ")" + " at Table " + tables[combo[0]].getTableID() + " and at Table " + tables[combo[1]].getTableID());
+                    seated = true;
+                    seatedParty[seatedCount[0]] = currentParty;
+                    seatedCount[0]++;
+                    while(!waitList.isEmpty()){
+                        tempQueue.enqueue(waitList.dequeue());
+                    }
+                    while(!tempQueue.isEmpty()){
+                        waitList.enqueue(tempQueue.dequeue());
+                    }
+                    return true;
+                }
+            }
+
+            if(!seated){
+                tempQueue.enqueue(currentParty);
             }
          
         }
 
+        while(!tempQueue.isEmpty()){
+            waitList.enqueue(tempQueue.dequeue());
+        }
         return false;
+    }
+
+    public static int[] findTableCombo(Party party, Table tables[]){ //method for checking after every table check fails, if it is able to combine with the set listed of compatible tables
+        for(int i = 0; i < tables.length; i++){
+            if(!tables[i].isAvailable()){
+                continue;
+            }
+            int[] combinableWith = tables[i].getCombinableWith();
+            for(int k = 0; k < combinableWith.length ; k++){
+                int partnerID = combinableWith[k];
+
+                for(int j = 0; j < tables.length; j++){
+                    if(tables[j].getTableID()==partnerID && tables[j].isAvailable()){
+                        if(tables[i].getSeats() + tables[j].getSeats() >= party.getPartySize()){
+                            return new int[]{i,j};
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
 }

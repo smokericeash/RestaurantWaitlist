@@ -4,11 +4,10 @@ public class Party {
     private int arrivalTime;
     private int seatingTime;
 
-    public Party(String name, int partySize, int arrivalTime, int seatingTime){
+    public Party(String name, int partySize, int arrivalTime){
         this.name = name;
         this.partySize = partySize;
         this.arrivalTime = arrivalTime;
-        this.seatingTime = -1;
     }
 
     public Party(){
@@ -26,12 +25,16 @@ public class Party {
         return partySize;
     }
 
-    public int arrivalTime(){
-        return arrivalTime;
+    public int getSeatingTime(){
+        return seatingTime;
     }
 
-    public int seatingTime(){
-        return seatingTime;
+    public int getWaitTime(){
+        return seatingTime - arrivalTime;
+    }
+
+    public int getArrivalTime(){
+        return arrivalTime;
     }
 
     public void setName(String name){
