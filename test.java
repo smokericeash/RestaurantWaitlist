@@ -15,12 +15,14 @@ public class test{
         int count = 0;
         int queueSize=0;
         try{
+            // Read table configuration from external text file
             Scanner fileReader = new Scanner(new File("tables.txt"));
             while(fileReader.hasNextLine()){
                 String line = fileReader.nextLine().trim();
                 String[] parts = line.split("\\s+");
                 int tableID = Integer.parseInt(parts[0]);
                 int seats = Integer.parseInt(parts[1]);
+                // Parse IDs of tables that can be combined with this one
                 int[] combineableWith = new int[parts.length-2];
                 for(int i = 2; i < parts.length; i++){
                     combineableWith[i-2] = Integer.parseInt(parts[i]);
@@ -36,6 +38,7 @@ public class test{
         Scanner keyboard = new Scanner(System.in);
         System.out.print("Would you like to implement Policy A or Policy B? (Type in A or B): ");
         String inputPolicy = keyboard.nextLine().trim();
+        // Initialize the waitlist using a linked queue structure
         QueueInterface<Party> waitList = new LinkedQueue<>();
 
         if(!inputPolicy.equalsIgnoreCase("A") && !inputPolicy.equalsIgnoreCase("B")){
@@ -55,6 +58,7 @@ public class test{
             currentTime++;
 
             if(input.equalsIgnoreCase("Q")){
+                // Calculate and display final wait time statistics before exiting
                 double totalTime = 0;
                 int maxTime = 0;
                 for(int i = 0; i < seatedCount[0] ; i++){
@@ -80,6 +84,7 @@ public class test{
                 System.out.println("============"); 
             }
             if(input.equalsIgnoreCase("V")){
+                // Temporarily dequeue and re-enqueue to display list contents
                 System.out.println("Current Waitlist:");
                 if(waitList.isEmpty()){
                     System.out.println("No one is currently on the waitlist.");
@@ -96,6 +101,7 @@ public class test{
 
             }
             if(input.toUpperCase().startsWith("J")){
+                // Create new party object and add to the end of the queue
                 int arrivalTime = currentTime-1;
                 Party party = new Party();
                 party.setName(parts[1] + " " + parts[2]);
@@ -107,12 +113,14 @@ public class test{
                 System.out.println("You are #" + queueSize + " in the waitlist.");     
             }
 
+            // Check each table to see if the dining time has elapsed
             for (int i = 0; i < tables.length; i++) {
                 if (!tables[i].isAvailable() && tables[i].getAvailableAtTime() <= currentTime) {
                     tables[i].setAvailable(true);
                 }
             }
-                //checking seatPolicyA/B
+            
+            // Execute seating logic based on user's chosen policy
             if(inputPolicy.equalsIgnoreCase("A")){
                 if(seatPartyPolicyA(waitList, tables, currentTime, seatedParty, seatedCount))
                     queueSize--;
@@ -129,15 +137,17 @@ public class test{
         if(waitList.isEmpty()){
             return false;
         }
+        // Strict FIFO: Only check the party at the front of the queue
         Party front = waitList.getFront();
         int partySize = front.getPartySize();
 
-        //finding single table
+        // Try to find a single available table that fits the party
         for(int i = 0; i < tables.length; i++){
             if(tables[i].isAvailable() && tables[i].getSeats() >= partySize){
                 waitList.dequeue();
                 front.setSeatingTime(currentTime);
                 tables[i].setAvailable(false);
+                // Calculate when the table will become free again
                 int doneAtTime = currentTime + (10+2 * partySize);
                 tables[i].setAvailableAtTime(doneAtTime);
                 System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[i].getTableID());
@@ -147,6 +157,7 @@ public class test{
             }
         }
 
+        // If no single table works, check for a valid combination of two tables
         int[] combination = findTableCombo(front,tables);
         if(combination!=null){
             waitList.dequeue();
@@ -164,16 +175,18 @@ public class test{
     }
 
     public static boolean seatPartyPolicyB(QueueInterface<Party> waitList, Table[] tables, int currentTime, int queueSize, Party[] seatedParty, int[] seatedCount){
-        if(waitList.isEmpty()){ //checking for empty queue 
+        if(waitList.isEmpty()){ 
             return false;
         }
 
         QueueInterface<Party> tempQueue = new LinkedQueue<>();
 
+        // Iterate through the waitlist to find ANY party that can fit
         for(int i = 0; i < queueSize; i++){
             Party currentParty = waitList.dequeue();
             
             boolean seated = false;
+            // Check for single table availability
             for(int j = 0; j < tables.length; j++){
                 if(tables[j].isAvailable() && tables[j].getSeats() >= currentParty.getPartySize()){
                     currentParty.setSeatingTime(currentTime);
@@ -185,6 +198,7 @@ public class test{
                     seatedParty[seatedCount[0]] = currentParty;
                     seatedCount[0]++;
                     queueSize--;
+                    // Re-assemble the queue after a party is seated
                     while(!waitList.isEmpty()){
                         tempQueue.enqueue(waitList.dequeue());
                     }
@@ -196,6 +210,7 @@ public class test{
                 
             }
 
+            // Check for table combinations if no single table is found
             if(!seated){
                 int[] combo = findTableCombo(currentParty, tables);
                 if(combo!=null){
@@ -218,19 +233,22 @@ public class test{
                 }
             }
 
+            // If party couldn't be seated, move them to the temporary queue to maintain order
             if(!seated){
                 tempQueue.enqueue(currentParty);
             }
          
         }
 
+        // Restore the original waitlist from the temporary queue
         while(!tempQueue.isEmpty()){
             waitList.enqueue(tempQueue.dequeue());
         }
         return false;
     }
 
-    public static int[] findTableCombo(Party party, Table tables[]){ //method for checking after every table check fails, if it is able to combine with the set listed of compatible tables
+    // Search for two tables that are both available and marked as combinable
+    public static int[] findTableCombo(Party party, Table tables[]){ 
         for(int i = 0; i < tables.length; i++){
             if(!tables[i].isAvailable()){
                 continue;
@@ -240,6 +258,7 @@ public class test{
                 int partnerID = combinableWith[k];
 
                 for(int j = 0; j < tables.length; j++){
+                    // Verify the partner table exists, is available, and combined capacity is sufficient
                     if(tables[j].getTableID()==partnerID && tables[j].isAvailable()){
                         if(tables[i].getSeats() + tables[j].getSeats() >= party.getPartySize()){
                             return new int[]{i,j};
