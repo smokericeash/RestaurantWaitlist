@@ -67,7 +67,8 @@ public class test{
                     }
                     System.out.println(seatedParty[i].getName() + " (" + seatedParty[i].getPartySize() + ") : Arrived: " + seatedParty[i].getArrivalTime() + "| Seated: " + seatedParty[i].getSeatingTime() + "| Wait: " + wait); 
                 }
-                System.out.println("Average wait time: " + totalTime/seatedCount[0]);
+                double avgWaitTime = totalTime/seatedCount[0];
+                System.out.printf("Average wait time: %.2f%n", avgWaitTime);
                 System.out.println("Maximum wait time: " + maxTime);
                 System.out.println("Total parties served: " + seatedCount[0]);
                 running=false;
@@ -133,39 +134,52 @@ public class test{
         }
     }
 
-    public static boolean seatPartyPolicyA(QueueInterface<Party> waitList, Table[] tables, int currentTime, Party[] seatedParty, int[] seatedCount){
+public static boolean seatPartyPolicyA(QueueInterface<Party> waitList, Table[] tables, int currentTime, Party[] seatedParty, int[] seatedCount){
         if(waitList.isEmpty()){
             return false;
         }
-        // Strict FIFO: Only check the party at the front of the queue
+        
         Party front = waitList.getFront();
         int partySize = front.getPartySize();
 
-        // Try to find a single available table that fits the party
+        // 1. Try to find the BEST single table (min wasted seats, then min ID)
+        int bestSingleIdx = -1;
+        int minWastedSingle = Integer.MAX_VALUE;
+
         for(int i = 0; i < tables.length; i++){
             if(tables[i].isAvailable() && tables[i].getSeats() >= partySize){
-                waitList.dequeue();
-                front.setSeatingTime(currentTime);
-                tables[i].setAvailable(false);
-                // Calculate when the table will become free again
-                int doneAtTime = currentTime + (10+2 * partySize);
-                tables[i].setAvailableAtTime(doneAtTime);
-                System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[i].getTableID());
-                seatedParty[seatedCount[0]] = front;
-                seatedCount[0]++;
-                return true;
+                int wasted = tables[i].getSeats() - partySize;
+                if(wasted < minWastedSingle){
+                    minWastedSingle = wasted;
+                    bestSingleIdx = i;
+                } else if(wasted == minWastedSingle){
+                    if(bestSingleIdx == -1 || tables[i].getTableID() < tables[bestSingleIdx].getTableID()){
+                        bestSingleIdx = i;
+                    }
+                }
             }
         }
 
-        // If no single table works, check for a valid combination of two tables
-        int[] combination = findTableCombo(front,tables);
-        if(combination!=null){
+        if(bestSingleIdx != -1){
+            waitList.dequeue();
+            front.setSeatingTime(currentTime);
+            tables[bestSingleIdx].setAvailable(false);
+            tables[bestSingleIdx].setAvailableAtTime(currentTime + (10 + 2 * partySize));
+            System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[bestSingleIdx].getTableID());
+            seatedParty[seatedCount[0]] = front;
+            seatedCount[0]++;
+            return true;
+        }
+
+        // 2. If no single table works, find the BEST combination
+        int[] combination = findTableCombo(front, tables);
+        if(combination != null){
             waitList.dequeue();
             front.setSeatingTime(currentTime);
             tables[combination[0]].setAvailable(false);
-            tables[combination[0]].setAvailableAtTime(currentTime + (10+2*front.getPartySize()));
+            tables[combination[0]].setAvailableAtTime(currentTime + (10 + 2 * partySize));
             tables[combination[1]].setAvailable(false);
-            tables[combination[1]].setAvailableAtTime(currentTime + (10+2*front.getPartySize()));
+            tables[combination[1]].setAvailableAtTime(currentTime + (10 + 2 * partySize));
             System.out.println("Now Seating: " + front.getName() + "(" + front.getPartySize() + ")" + " at Table " + tables[combination[0]].getTableID() + " and at Table " + tables[combination[1]].getTableID());
             seatedParty[seatedCount[0]] = front;
             seatedCount[0]++;
@@ -180,94 +194,102 @@ public class test{
         }
 
         QueueInterface<Party> tempQueue = new LinkedQueue<>();
+        boolean foundAnyToSeat = false;
 
-        // Iterate through the waitlist to find ANY party that can fit
         for(int i = 0; i < queueSize; i++){
             Party currentParty = waitList.dequeue();
             
-            boolean seated = false;
-            // Check for single table availability
-            for(int j = 0; j < tables.length; j++){
-                if(tables[j].isAvailable() && tables[j].getSeats() >= currentParty.getPartySize()){
+            if(!foundAnyToSeat){
+                // Try single table first
+                int bestS = -1;
+                int minW = Integer.MAX_VALUE;
+                for(int j = 0; j < tables.length; j++){
+                    if(tables[j].isAvailable() && tables[j].getSeats() >= currentParty.getPartySize()){
+                        int w = tables[j].getSeats() - currentParty.getPartySize();
+                        if(w < minW){
+                            minW = w;
+                            bestS = j;
+                        } else if(w == minW){
+                            if(bestS == -1 || tables[j].getTableID() < tables[bestS].getTableID()) bestS = j;
+                        }
+                    }
+                }
+
+                if(bestS != -1){
                     currentParty.setSeatingTime(currentTime);
-                    tables[j].setAvailable(false);
-                    int doneAtTime = currentTime + (10+2 * currentParty.getPartySize());
-                    tables[j].setAvailableAtTime(doneAtTime);
-                    System.out.println("Now Seating: " + currentParty.getName() + "(" + currentParty.getPartySize() + ")" + " at Table " + tables[j].getTableID());
-                    seated = true;
+                    tables[bestS].setAvailable(false);
+                    tables[bestS].setAvailableAtTime(currentTime + (10 + 2 * currentParty.getPartySize()));
+                    System.out.println("Now Seating: " + currentParty.getName() + "(" + currentParty.getPartySize() + ")" + " at Table " + tables[bestS].getTableID());
                     seatedParty[seatedCount[0]] = currentParty;
                     seatedCount[0]++;
-                    queueSize--;
-                    // Re-assemble the queue after a party is seated
-                    while(!waitList.isEmpty()){
-                        tempQueue.enqueue(waitList.dequeue());
-                    }
-                    while(!tempQueue.isEmpty()){
-                        waitList.enqueue(tempQueue.dequeue());
-                    }
-                    return true;
+                    foundAnyToSeat = true;
+                    continue; // Do not enqueue, party is seated
                 }
-                
-            }
 
-            // Check for table combinations if no single table is found
-            if(!seated){
+                // Try combo if single fails
                 int[] combo = findTableCombo(currentParty, tables);
-                if(combo!=null){
+                if(combo != null){
                     currentParty.setSeatingTime(currentTime);
                     tables[combo[0]].setAvailable(false);
-                    tables[combo[0]].setAvailableAtTime(currentTime + (10+2*currentParty.getPartySize()));
+                    tables[combo[0]].setAvailableAtTime(currentTime + (10 + 2 * currentParty.getPartySize()));
                     tables[combo[1]].setAvailable(false);
-                    tables[combo[1]].setAvailableAtTime(currentTime + (10+2*currentParty.getPartySize()));
+                    tables[combo[1]].setAvailableAtTime(currentTime + (10 + 2 * currentParty.getPartySize()));
                     System.out.println("Now Seating: " + currentParty.getName() + "(" + currentParty.getPartySize() + ")" + " at Table " + tables[combo[0]].getTableID() + " and at Table " + tables[combo[1]].getTableID());
-                    seated = true;
                     seatedParty[seatedCount[0]] = currentParty;
                     seatedCount[0]++;
-                    while(!waitList.isEmpty()){
-                        tempQueue.enqueue(waitList.dequeue());
-                    }
-                    while(!tempQueue.isEmpty()){
-                        waitList.enqueue(tempQueue.dequeue());
-                    }
-                    return true;
+                    foundAnyToSeat = true;
+                    continue; // Do not enqueue
                 }
             }
-
-            // If party couldn't be seated, move them to the temporary queue to maintain order
-            if(!seated){
-                tempQueue.enqueue(currentParty);
-            }
-         
+            tempQueue.enqueue(currentParty);
         }
 
-        // Restore the original waitlist from the temporary queue
         while(!tempQueue.isEmpty()){
             waitList.enqueue(tempQueue.dequeue());
         }
-        return false;
+        return foundAnyToSeat;
     }
 
-    // Search for two tables that are both available and marked as combinable
     public static int[] findTableCombo(Party party, Table tables[]){ 
-        for(int i = 0; i < tables.length; i++){
-            if(!tables[i].isAvailable()){
-                continue;
-            }
-            int[] combinableWith = tables[i].getCombinableWith();
-            for(int k = 0; k < combinableWith.length ; k++){
-                int partnerID = combinableWith[k];
+        int bestI = -1, bestJ = -1;
+        int minWasted = Integer.MAX_VALUE;
 
+        for(int i = 0; i < tables.length; i++){
+            if(!tables[i].isAvailable()) continue;
+            
+            int[] combinableWith = tables[i].getCombinableWith();
+            for(int partnerID : combinableWith){
                 for(int j = 0; j < tables.length; j++){
-                    // Verify the partner table exists, is available, and combined capacity is sufficient
-                    if(tables[j].getTableID()==partnerID && tables[j].isAvailable()){
-                        if(tables[i].getSeats() + tables[j].getSeats() >= party.getPartySize()){
-                            return new int[]{i,j};
+                    if(tables[j].getTableID() == partnerID && tables[j].isAvailable()){
+                        int totalSeats = tables[i].getSeats() + tables[j].getSeats();
+                        if(totalSeats >= party.getPartySize()){
+                            int wasted = totalSeats - party.getPartySize();
+                            
+                            // Determine tie-break order for this specific pair
+                            int smallID = Math.min(tables[i].getTableID(), tables[j].getTableID());
+                            int largeID = Math.max(tables[i].getTableID(), tables[j].getTableID());
+
+                            if(wasted < minWasted){
+                                minWasted = wasted;
+                                bestI = i; bestJ = j;
+                            } else if(wasted == minWasted){
+                                // Tie-break: compare smallest first ID, then second ID
+                                if(bestI == -1){
+                                    bestI = i; bestJ = j;
+                                } else {
+                                    int currentSmall = Math.min(tables[bestI].getTableID(), tables[bestJ].getTableID());
+                                    int currentLarge = Math.max(tables[bestI].getTableID(), tables[bestJ].getTableID());
+                                    if(smallID < currentSmall || (smallID == currentSmall && largeID < currentLarge)){
+                                        bestI = i; bestJ = j;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        return null;
+        return (bestI != -1) ? new int[]{bestI, bestJ} : null;
     }
 
 }
